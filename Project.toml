@@ -1,0 +1,9 @@
+name = "ParamLevelSet"
+uuid = "8d29aade-bbbb-4e96-8513-97d62a9e81a0"
+authors = ["Eran Treister <erantreister@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+jInv = "3dacf901-f8cd-5544-86ed-7a705f85c244"
