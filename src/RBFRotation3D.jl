@@ -170,7 +170,7 @@ function getIpIdxs(I_p, nRBF::Int64,nMoves::Int64,numParamOfRBF::Int64 = 5)
 Idxs = zeros(Bool,nRBF*numParamOfRBF + nMoves*5);
 for k = I_p
 	offset = nRBF*numParamOfRBF + (k-1)*5;
-	Idxs[(offset+1):(offset+5)] = true;
+	Idxs[(offset+1):(offset+5)] .= true;
 end
 Idxs[1:nRBF*numParamOfRBF] = true;
 return Idxs;
