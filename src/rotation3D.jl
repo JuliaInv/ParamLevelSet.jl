@@ -109,7 +109,7 @@ for i3 = 1:size(v,3)
 		for i1 = 1:size(v,1)
 			@inbounds vi = v[i1,i2,i3];
 			if abs(vi) > thresh
-				x = [i1;i2;i3] - (mid+0.5) - b; ### here we actually do the inverse operation in a forward way
+				x = [i1;i2;i3] .- (mid .+ 0.5 ) .- b; ### here we actually do the inverse operation in a forward way
 				x = invR*x;
 				x .+= mid;
 				@inbounds if x[1] <=  0.5 || (x[1] >= n[1]-0.5) || (x[2] <= 0.5) || (x[2] >= n[2]-0.5)|| x[3] <= 0.5 || x[3] >= n[3]-0.5
