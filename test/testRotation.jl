@@ -47,7 +47,7 @@ end
 theta_phi = deg2rad.([37.0;24.0]);
 display(theta_phi)
 b = [1.0;2.0;3.0];
-b[:] .= 0.0;
+#b[:] .= 0.0;
 
 
 # RT = generateSamplingMatrix(u,theta_phi,1,1)
@@ -55,14 +55,14 @@ b[:] .= 0.0;
 # println("The norm is:")
 # println(norm(RT*v - u[:]))
 
-v,xt,xtt = rotateAndMove3D(u,theta_phi,b,false);
+v, = rotateAndMove3D(u,theta_phi,b,false);
 
 if plotting
 	figure()
 	plotModel(v)
 end
-uu = rotateAndMove3DTranspose(v,theta_phi,b);
-#uu,xt,xtt = rotateAndMove3D(v,theta_phi,b,true);
+#uu = rotateAndMove3DTranspose(v,theta_phi,b);
+uu, = rotateAndMove3D(v,theta_phi,b,true);
 if plotting
 	figure()
 	plotModel(uu)
