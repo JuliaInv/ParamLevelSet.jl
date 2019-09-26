@@ -1,8 +1,9 @@
 using ParamLevelSet
 using LinearAlgebra
-#ENV["MPLBACKEND"] = "Qt4Agg"
-include("ndgrid.jl")
-plotting = true;
+using Test
+using jInv.Mesh
+
+plotting = false;
 if plotting
 	using jInvVisPyPlot
 	using PyPlot
@@ -35,7 +36,8 @@ end
 
 
 println("Rotation operator transpose test");
-n = [65,65,65];
+n = [33,33,33];
+
 u = getDiamondModel(n);
 u = convert(Array{Float64}, u)
 
@@ -47,7 +49,7 @@ end
 theta_phi = deg2rad.([37.0;24.0]);
 display(theta_phi)
 b = [1.0;2.0;3.0];
-#b[:] .= 0.0;
+
 
 
 # RT = generateSamplingMatrix(u,theta_phi,1,1)
@@ -68,13 +70,6 @@ if plotting
 	plotModel(uu)
 end
 
-println(dot(v,v))
-println(dot(uu,u));
+@test abs(dot(v,v) - dot(uu,u)) < 1e-5
+@test norm(uu[:]-u[:])/norm(u[:]) < 1.0
 
-# if abs(dot(v,v) - dot(uu,u)) > 1e-5
-# 	error("Bug");
-# end
-print(norm(uu[:]-u[:]))
-if norm(uu[:]-u[:]) > 1e-5
-	error("Bug");
-end

@@ -5,7 +5,6 @@ version = "0.1.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 jInv = "3dacf901-f8cd-5544-86ed-7a705f85c244"
-jInvVisPyPlot = "505aa222-9490-414a-a655-3af9297e14ce"

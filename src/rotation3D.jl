@@ -59,7 +59,8 @@ XTT[1,:] .= midphalf[1];
 XTT[2,:] .= midphalf[2];
 XTT[3,:] .= midphalf[3];
 BLAS.gemm!('N','N',1.0,invR,XT,1.0,XTT);
-II = vec(sum((XTT .> 0.5) .& (XTT .< n[1]),dims=1).>=3);
+# I think that here we assume that the domain is square to simplify.
+II = findall(vec(sum((XTT .> 0.5) .& (XTT .< n[1]),dims=1).>=3));
 
 LOC = round.(Int64,XTT[:,II]);
 LOC = loc2cs3D(LOC[1,:],LOC[2,:],LOC[3,:],n);
@@ -67,8 +68,13 @@ LOC = loc2cs3D(LOC[1,:],LOC[2,:],LOC[3,:],n);
 if !doTranspose
 	v[II] = u[LOC];
 else
-	v[LOC] += u[II]
+	# The following two options are actually different in terms of repeatitions:
+	# v[LOC] .+= u[II];
+	for ii=1:length(LOC)
+		v[LOC[ii]] += u[II[ii]];
+	end
 end
+
 # the code below is an altenative to the code above.
 # for i3 = 1:size(u,3)
 	# for i2 = 1:size(u,2)
