@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/JuliaInv/ParamLevelSet.jl.svg?branch=master)](https://travis-ci.org/JuliaInv/ParamLevelSet.jl)
-[![Coverage Status](https://coveralls.io/repos/github/JuliaInv/ParamLevelSet.jl/badge.svg?branch=master)](https://coveralls.io/github/JuliaInv/ParamLevelSet.jl?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/JuliaInv/ParamLevelSet.jl/badge.svg)](https://coveralls.io/github/JuliaInv/ParamLevelSet.jl)
 
 
 # ParamLevelSet.jl
