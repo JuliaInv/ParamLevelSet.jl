@@ -1,6 +1,8 @@
 #using VolReconstruction.Utils
 using ParamLevelSet
 using jInv.Mesh
+using LinearAlgebra 
+using SparseArrays
 
 plotting = false;
 if plotting
@@ -8,8 +10,9 @@ if plotting
 	using PyPlot
 end
 
+println("~~~~~~~~~~~~~~~~Testing extended RBFs.~~~~~~~~~~~~~~~~~~")
 
-n = [64,64,64];
+n = [32,32,32];
 
 Mesh = getRegularMesh([0.0;3.0;0.0;3.0;0.0;3.0],n);
 midmesh = [(Mesh.domain[2]+Mesh.domain[1]/2) ; (Mesh.domain[4]+Mesh.domain[3]/2); (Mesh.domain[5]+Mesh.domain[6]/2)];
@@ -26,10 +29,7 @@ for k=1:nRBF
 	# println(beta)
 	# m10[offset10+1] = beta; m10[offset10+4] = beta; m10[offset10+6] = beta; ## for the L version.
 	m10[offset10+1] = beta^2; m10[offset10+4] = beta^2; m10[offset10+6] = beta^2; ## for the A version.
-	
 	m10[(offset10+7):(offset10+9)] = midmesh + 0.1*lenmesh.*randn(size(lenmesh));
-	
-	
 	offset5 = (k-1)*5 + 1;
 	m5[offset5] = m10[offset10];
 	m5[offset5+1] = beta;
@@ -42,7 +42,7 @@ if norm(u5-u10) > 1e-5
 	error(string("This should be zero: ",norm(u5-u10)));
 end
 
-n = [64,64,64];
+n = [32,32,32];
 Mesh = getRegularMesh([0.0;5.0;0.0;5.0;0.0;5.0],n);
 midmesh = [(Mesh.domain[2]+Mesh.domain[1])/2 ; (Mesh.domain[4]+Mesh.domain[3])/2; (Mesh.domain[5]+Mesh.domain[6])/2];
 lenmesh = [(Mesh.domain[2]-Mesh.domain[1]) ; (Mesh.domain[4]-Mesh.domain[3]); (Mesh.domain[6]-Mesh.domain[5])];
@@ -60,10 +60,8 @@ for k=1:nRBF
 
 	# m[offset+1] = 1.0; m[offset+4] = 1.0; m[offset+6] = 1.0;
 	m[(offset+7):(offset+9)] = midmesh + 0.05*lenmesh.*randn(size(lenmesh));
-	 println(midmesh + 0.1*lenmesh.*randn(size(lenmesh)))
+	#println(midmesh + 0.1*lenmesh.*randn(size(lenmesh)))
 end
-
-
 u, = ParamLevelSetModelFunc(Mesh,m;computeJacobian=0,numParamOfRBF = 10);
 if plotting 
 	figure()
@@ -71,9 +69,7 @@ if plotting
 	plotModel(u)
 end
 
-sigmaH = getDefaultHeavySide();
-
-
+sigmaH = getDefaultHeaviside();
 us, = ParamLevelSetModelFunc(Mesh,m;computeJacobian=0,sigma = sigmaH,numParamOfRBF = 10);
 if plotting
 	figure()
@@ -91,25 +87,31 @@ for k=1:nRBF
 end
 
 hh = 1.0;
-u0,II,JJ,VV = ParamLevelSetModelFunc(Mesh,m;computeJacobian=1,bf = bf,numParamOfRBF = 10);
-J0 = sparse(II,JJ,VV,prod(Mesh.n),length(m))
+# u0,II,JJ,VV = ParamLevelSetModelFunc_old(Mesh,m;computeJacobian=1,bf = bf,numParamOfRBF = 10);
+# J0 = sparse(II,JJ,VV,prod(Mesh.n),length(m))
+
+u0,JBuilder = ParamLevelSetModelFunc(Mesh,m;computeJacobian=1,bf = bf,numParamOfRBF = 10);
+J0 = getSparseMatrix(JBuilder);
+
 for k=0:8
 	hhh = (0.5^k)*hh;
 	ut = ParamLevelSetModelFunc(Mesh,m+ hhh*dm;computeJacobian=0,bf = bf,numParamOfRBF = 10)[1];
 	println("norm(ut-u0): ",norm(ut[:]-u0[:]),", norm(ut - u0 - J0*dm): ",norm(ut[:] - u0[:] - J0*hhh*dm));
 end
 
-println("With Heavy Side func");
+println("With Heaviside func");
 
 hh = 1.0;
 
-u0,II,JJ,VV = ParamLevelSetModelFunc(Mesh,m;computeJacobian=1,sigma=sigmaH,bf = bf,numParamOfRBF = 10);
-J0 = sparse(II,JJ,VV,prod(Mesh.n),length(m));
+# u0,II,JJ,VV = ParamLevelSetModelFunc_old(Mesh,m;computeJacobian=1,sigma=sigmaH,bf = bf,numParamOfRBF = 10);
+# J0 = sparse(II,JJ,VV,prod(Mesh.n),length(m));
 
+u0,JBuilder = ParamLevelSetModelFunc(Mesh,m;computeJacobian=1,sigma=sigmaH,bf = bf,numParamOfRBF = 10);
+J0 = getSparseMatrix(JBuilder);
 for k=0:8
 	hhh = (0.5^k)*hh;
     ut = ParamLevelSetModelFunc(Mesh,m + hhh*dm;computeJacobian=0,sigma=sigmaH,bf = bf,numParamOfRBF = 10)[1];
-	println("norm(ut-u0): ",norm(ut[:]-u0[:]),", norm(ut - u0 - J0*dm): ",norm(ut[:] - u0[:] - J0*hhh*dm));
+	println("norm(ut-u0): ",norm(ut[:]-u0[:]),", norm(ut - u0 - J0*dm): ",norm(ut[:] - u0[:] - hhh*(J0*dm)));
 end
 
 

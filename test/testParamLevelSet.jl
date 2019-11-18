@@ -3,6 +3,7 @@ using ParamLevelSet
 using jInv.Mesh
 using SparseArrays
 using LinearAlgebra
+using Test
 
 plotting = false;
 if plotting
@@ -10,7 +11,7 @@ if plotting
 	using PyPlot
 end
 
-n = [64,64,64];
+n = [32,32,32];
 Mesh = getRegularMesh([0.0;3.0;0.0;3.0;0.0;3.0],n);
 alpha = [1.5;2.5;-2.0;-1.0];
 beta = [2.5;2.0;-1.5;2.5];
@@ -26,7 +27,7 @@ if plotting
 	plotModel(u)
 end
 
-sigmaH = getDefaultHeavySide();
+sigmaH = getDefaultHeaviside();
 
 
 us, = ParamLevelSetModelFunc(Mesh,m;computeJacobian=0,sigma = sigmaH);
@@ -47,20 +48,20 @@ dm = 0.01*randn(length(alpha)*5);
 
 
 hh = 1.0;
-u0,II,JJ,VV = ParamLevelSetModelFunc(Mesh,m;computeJacobian=1,bf = bf);
-J0 = sparse(II,JJ,VV,prod(Mesh.n),length(m))
+u0,JBuilder = ParamLevelSetModelFunc(Mesh,m;computeJacobian=1,bf = bf);
+J0 = getSparseMatrix(JBuilder);
 for k=0:10
 	hhh = (0.5^k)*hh;
 	ut = ParamLevelSetModelFunc(Mesh,m+ hhh*dm;computeJacobian=0,bf = bf)[1];
 	println("norm(ut-u0): ",norm(ut[:]-u0[:]),", norm(ut - u0 - J0*dm): ",norm(ut[:] - u0[:] - J0*hhh*dm));
 end
 
-println("With Heavy Side func");
+println("With Heaviside func");
 
 hh = 1.0;
 
-u0,II,JJ,VV = ParamLevelSetModelFunc(Mesh,m;computeJacobian=1,sigma=sigmaH,bf = bf);
-J0 = sparse(II,JJ,VV,prod(Mesh.n),length(m));
+u0,JBuilder = ParamLevelSetModelFunc(Mesh,m;computeJacobian=1,sigma=sigmaH,bf = bf);
+J0 = getSparseMatrix(JBuilder);
 
 for k=0:10
 	hhh = (0.5^k)*hh;
@@ -70,16 +71,13 @@ for k=0:10
 	println("norm(ut-u0): ",norm(ut[:]-u0[:]),", norm(ut - u0 - J0*dm): ",norm(ut[:] - u0[:] - J0*hhh*dm));
 end
 
-
-
-
-println("Testing Heavyside")
+println("Testing Heaviside")
 u = randn(10);
-(us1,ds1) = heavySide(u,0.0);
+(us1,ds1) = heaviside(u,0.0);
 ds2 = zeros(size(u));
-heavySide!(u,ds2,0.0);
-println(norm(u - us1));
-println(norm(diag(ds1) - ds2));
+heaviside!(u,ds2,0.0);
+@test norm(u - us1)<1e-14;
+@test norm(diag(ds1) - ds2) < 1e-14;
 
 
 

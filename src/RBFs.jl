@@ -1,101 +1,62 @@
-
 export getAlpha, getBeta, getX,ParamLevelSetModelFunc
-
 function ParamLevelSetModelFunc(Mesh::RegularMesh,m::Vector; computeJacobian = 1, bf::Int64 = 1,
 		 sigma::Function = (m,n)->(n[:] .= 1.0),
-		 Xc::Array{Float32,2} = convert(Array{Float32,2},getCellCenteredGrid(Mesh)),u::Vector = zeros(prod(Mesh.n)),dsu::Vector = zeros(prod(Mesh.n)),
-		 Ihuge ::Vector{Int32} = zeros(Int32,0), Is = zeros(Int32,0), Js = zeros(Int32,0),Vs = zeros(Float64,0),
+		 Xc = convert(Array{Float32,2}, getCellCenteredGrid(Mesh)),u::Vector = zeros(prod(Mesh.n)),dsu::Vector = zeros(prod(Mesh.n)),
+		 Jbuilder::SpMatBuilder{Int64,Float64} = getSpMatBuilder(Int64,Float64,prod(Mesh.n),length(m),computeJacobian*10*prod(Mesh.n)),
 		 iifunc::Function=identity, numParamOfRBF::Int64 = 5)
 	n = Mesh.n;
 	if length(u) != prod(n)
 		error("preallocated u is of wrong size");
 	end
 	u[:] .= 0.0;
+	reset!(Jbuilder);
 	h = Mesh.h;
 	nRBFs = div(length(m),numParamOfRBF);
 	xmin = Mesh.domain[[1;3;5]];
+	beta_arr = Array{Float64}(undef,nRBFs);
+		
 	
-
-	if length(Ihuge)==0
-		if numParamOfRBF==5
-			lenIbig = ceil(Int64,0.6*((2.0*0.9)^3)*prod(1.0./h)*sum(1.0./(abs.(m[2:5:end]).^3.0)));
-		else
-			lenIbig = 0;
-			vol = 0.0;
-			# for k=1:nRBFs
-				# (l1,l2,l3,l4,l5,l6) = getL(k,m);
-				# l1*=l4; l1*=l6; # l1 holds sqrt(det(LL^T)) = det(L);
-				# vol += 1.0/l1;
-			# end
-			for k=1:nRBFs
-				(a1,a2,a3,a4,a5,a6) = getA(k,m);
-				A = [a1  a2 a3 ; a2 a4 a5 ; a3 a5 a6];
-				a1 = sqrt(det(A));
-				vol += 1.0/a1;
-			end
-			lenIbig = ceil(Int64,0.6*((2.0*0.9)^3)*prod(1.0./h)*vol);
-		end
-		# println("Allocating Ihuge: ",lenIbig);
-		Ihuge = zeros(Int32,lenIbig);
-	end
-	Istarts = zeros(Int64,nRBFs+1);
-	Istarts[1] = 1;
-	
-	## in run 1 we calculate u. in run 2 we calculate J after we know the derivative of the heavySide. 
-	ii_count_huge = 1;
+	## in run 1 we calculate u. in run 2 we calculate J after we know the derivative of the heaviside. 
 	for k=1:nRBFs
 		if numParamOfRBF==5
-			ii_count_huge = computeFuncAndUpdateIhuge!(m,k,Xc,h,n,Ihuge,Istarts,u,xmin,ii_count_huge);
+			computeFunc!(m,k,Xc,h,n,u,xmin);
 		else
 			# putting this inside the function takes a huge amount of time... go figure..
 			(a1,a2,a3,a4,a5,a6) = getA(k,m);
 			A = [a1 a2 a3 ; a2 a4 a5 ; a3 a5 a6];
 			beta = sqrt(minimum(eigvals(A)));
-			ii_count_huge = computeFuncAndUpdateIhuge_ellipsoids!(m,k,Xc,h,n,Ihuge,Istarts,u,xmin,ii_count_huge,beta);
+			computeFunc_ellipsoids!(m,k,Xc,h,n,u,xmin,beta);
+			beta_arr[k] = beta;
 		end
 	end
-	# if 10*ii_count_huge < lenIbig
-		# warn("Reached to: ", ii_count_huge, " when allocated ",lenIbig)
-	# end
 	sigma(u,dsu);
 	nnzJ = 0
 	if computeJacobian == 1
-		nnzJ = shrinkIhugeFromDsu!(Ihuge,Istarts,dsu,numParamOfRBF);
-		if nnzJ > length(Is)
-			newnnzJ = ceil(Int64,1.25*nnzJ);
-			Is = ones(Int32,newnnzJ);
-			Js = ones(Int32,newnnzJ);
-			Vs = zeros(Float64,newnnzJ);
-		end
-		curr = 1;
-		for k=1:nRBFs
-			if numParamOfRBF==5
-				curr = updateJacobianArrays!(k,m,curr,dsu,Is,Js,Vs,u,Ihuge,Istarts,iifunc,Xc);
-			else
-				curr = updateJacobianArrays_ellipsoids!(k,m,curr,dsu,Is,Js,Vs,u,Ihuge,Istarts,iifunc,Xc);
+		if numParamOfRBF==5
+			for k=1:nRBFs
+				updateJacobian!(k,m,dsu,h,n,Jbuilder,u,iifunc,Xc,xmin);
+			end
+		else
+			for k=1:nRBFs
+				updateJacobian_ellipsoids!(k,m,dsu,h,n,Jbuilder,u,iifunc,Xc,xmin,beta_arr[k])
 			end
 		end	
 	end
-	return u,Is,Js,Vs,Ihuge; # J = sparse(Is,Js,Vs,prod(n),length(m));
+	return u,Jbuilder;
 end
 
 
 
-function computeFuncAndUpdateIhuge!(m::Vector{Float64},k::Int64,Xc::Array{Float32},h::Vector{Float64},n::Vector{Int64},
-		Ihuge::Vector{Int32},Istarts::Vector{Int64},u::Vector{Float64},xmin::Vector{Float64},ii_count_huge::Int64)
+function computeFunc!(m::Vector{Float64},k::Int64,Xc,h::Vector{Float64},n::Vector{Int64},
+         u::Vector{Float64},xmin::Vector{Float64})
 (x1,x2,x3) = getXt(k,m);
 i = round.(Int64,(getX(k,m) - xmin)./h .+ 0.5);
-# @inbounds if (i[1] <=  1) || (i[1] > n[1]) || (i[2] < 1) || (i[2] > n[2])|| (i[3] < 1) || (i[3] > n[3])
-	# warn("RBFapprox: x went out of bounds.");
-	# Istarts[k+1] = ii_count_huge;
-	# return ii_count_huge;
-# end
 # ## here we take a reasonable box around the bf. 
 # ## The constant depends on the type of RBF that we take.
 beta = getBeta(k,m);
 betaSq = beta^2;
 thres = 0.81/betaSq;
-boxL = ceil.(Int32,0.9./(h*abs(beta)));
+boxL = ceil.(Int64,0.9./(h*abs(beta)));
 imax = min.(i + boxL,n);
 imin = max.(i - boxL,[1;1;1]);
 alpha = getAlpha(k,m);
@@ -106,9 +67,8 @@ alpha = getAlpha(k,m);
 		@inbounds iishift2 = iishift3 + (j-1)*n[1];
 		@inbounds for q = imin[1]:imax[1]
 			ii = iishift2 + q;
-			nX = 0.0;
 			@inbounds y = Xc[ii,1]-x1; y*=y;
-			nX+=y;
+			nX = y;
 			@inbounds y = Xc[ii,2]-x2; y*=y;
 			nX+=y;
 			@inbounds y = Xc[ii,3]-x3; y*=y;
@@ -119,77 +79,63 @@ alpha = getAlpha(k,m);
 				argii = psi1(argii);
 				argii *= alpha;
 				@inbounds u[ii] += argii;
-				@inbounds Ihuge[ii_count_huge] = ii;
-				ii_count_huge += 1;
 			end
 		end
 	end
 end
-Istarts[k+1] = ii_count_huge;
-return ii_count_huge;
 end
 
 
-function updateJacobianArrays!(k::Int64,m::Vector{Float64},curr::Int64,dsu::Vector{Float64},Is::Vector{Int32},Js::Vector{Int32},Vs::Union{Vector{Float64},Vector{Float32}},u::Vector{Float64},Ihuge::Vector{Int32},Istarts::Vector{Int64},iifunc::Function,Xc::Array{Float32})
+function updateJacobian!(k::Int64,m::Vector{Float64},dsu::Vector{Float64},h::Vector{Float64},n::Vector{Int64},Jbuilder::SpMatBuilder,u::Vector{Float64},iifunc::Function,Xc,xmin::Vector{Float64})
 (x1,x2,x3) = getXt(k,m);
 alpha = getAlpha(k,m);
 beta = getBeta(k,m);
-			
 betaSQ = beta*beta;
 invBeta = (1.0/beta);
-alphaBetaSq = alpha*betaSQ;
-offset = convert(Int32,(k-1)*5 + 1);
-temp = 0.0;
-for iih = (Istarts[k]):(Istarts[k+1]-1)
-	@inbounds ii = Ihuge[iih];
-	@inbounds temp = dsu[ii];
-	@inbounds y1 = x1 - Xc[ii,1]; nX =y1*y1;
-	@inbounds y2 = x2 - Xc[ii,2]; nX+=y2*y2;
-	@inbounds y3 = x3 - Xc[ii,3]; nX+=y3*y3;
-	radii = radiust(nX*betaSQ);
-	psi,dpsi = dpsi1_t(radii);
-	psi*=temp;
-	Vs[curr] = psi;
-	temp*= alphaBetaSq;
-	temp/= radii;
-	temp*=dpsi;
-	nX *= temp;
-	nX *= invBeta;
-	y1*=temp; y2*=temp; y3*=temp;
-	@inbounds Vs[curr+1] = nX;
-	@inbounds Vs[curr+2] = y1;
-	@inbounds Vs[curr+3] = y2;
-	@inbounds Vs[curr+4] = y3;
-	ii = iifunc(ii);
-	for p = 0:4
-		@inbounds Is[curr+p] = ii;
-		@inbounds Js[curr+p] = offset + Int32(p);
-	end				
-	curr += 5;				
-end
-return curr;
-end 
+thres = 0.81/betaSQ;
 
-function shrinkIhugeFromDsu!(Ihuge::Vector{Int32},Istarts::Vector{Int64},dsu::Vector{Float64},numParamOfRBF::Int64 = 5)
+
+alphaBetaSq = alpha*betaSQ;
+offset = convert(Int64,(k-1)*5 + 1);
 md = 1e-3*maximum(abs.(dsu));
-jj_rel = 1;
-for k=1:(length(Istarts)-1)
-	for jj = (Istarts[k]):(Istarts[k+1]-1)
-		if dsu[Ihuge[jj]] >= md
-			Ihuge[jj_rel] = Ihuge[jj];
-			jj_rel+=1;
+boxL = ceil.(Int64,0.9./(h*abs(beta)));
+i = round.(Int64,([x1;x2;x3] - xmin)./h .+ 0.5);
+imax = min.(i + boxL,n);
+imin = max.(i - boxL,[1;1;1]);
+
+@inbounds for l = imin[3]:imax[3]
+	@inbounds iishift3 = (l-1)*n[1]*n[2];
+	@inbounds for j = imin[2]:imax[2]
+		@inbounds iishift2 = iishift3 + (j-1)*n[1];
+		@inbounds for q = imin[1]:imax[1]
+			ii = iishift2 + q;
+			temp = dsu[ii];
+			if temp >= md
+				@inbounds y1 = x1 - Xc[ii,1]; nX =y1*y1;
+				@inbounds y2 = x2 - Xc[ii,2]; nX+=y2*y2;
+				@inbounds y3 = x3 - Xc[ii,3]; nX+=y3*y3;
+				if (nX <= thres) # 0.77~0.875^2
+					radii = radiust(nX*betaSQ);
+					psi,dpsi = dpsi1_t(radii);
+					psi*=temp;
+					temp*= alphaBetaSq;
+					temp/= radii;
+					temp*=dpsi;
+					nX *= temp;
+					nX *= invBeta;
+					y1*=temp; y2*=temp; y3*=temp;
+					ii = iifunc(ii);
+					setNext!(Jbuilder,ii,offset,psi);
+					setNext!(Jbuilder,ii,offset+1,nX);
+					setNext!(Jbuilder,ii,offset+2,y1);
+					setNext!(Jbuilder,ii,offset+3,y2);
+					setNext!(Jbuilder,ii,offset+4,y3);		
+				end
+			end
 		end
 	end
-	Istarts[k] = jj_rel; # this should actually be k+1 but it interfere with the loop.
-	# fixed immediately after loop.
 end
-for k=length(Istarts):-1:2
-	Istarts[k] = Istarts[k-1];
-end
-Istarts[1]=1;
-return numParamOfRBF*(Istarts[end]-1);
-end
-
+end 
 
 
 function getAlpha(k::Int64,m::Vector{Float64},numParamOfRBF::Int64 = 5)

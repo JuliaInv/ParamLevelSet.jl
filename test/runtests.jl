@@ -1,4 +1,5 @@
-include("testRotation.jl")
+include("testSpMatBuilder.jl");
+include("testRotation.jl");
 include("testParamLevelSet.jl");
 include("testParamLevelSet_extended.jl");
 include("testRegularization.jl");

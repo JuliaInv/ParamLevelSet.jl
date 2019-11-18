@@ -1,6 +1,6 @@
 
-export heavySide
-function heavySide(x,c = 0.15,delta = 0.1,epsilon = 0.1*delta)
+export heaviside
+function heaviside(x,c = 0.15,delta = 0.1,epsilon = 0.1*delta)
 a = c - delta;
 b = c + delta;
 
@@ -28,8 +28,8 @@ dy[I] = 2.0.*t;
 return y,Diagonal(dy[:]);
 end
 
-export heavySide!
-function heavySide!(x::Union{Array{Float64},Array{Float32}},y::Union{Array{Float64},Array{Float32}},c::Float64 = 0.15,delta::Float64 = 0.1,epsilon::Float64 = 0.1*delta)
+export heaviside!
+function heaviside!(x::Union{Array{Float64},Array{Float32}},y::Union{Array{Float64},Array{Float32}},c::Float64 = 0.15,delta::Float64 = 0.1,epsilon::Float64 = 0.1*delta)
 a = c - delta;
 b = c + delta;
 height = 1.0/(b-a);
