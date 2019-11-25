@@ -2,14 +2,15 @@ using ParamLevelSet
 using jInv.Mesh
 using LinearAlgebra 
 using SparseArrays
-using Test 
+using Test
+
 plotting = false;
 if plotting
 	using jInvVis
 	using PyPlot
 end
 
-println("~~~~~~~~~~~~~~~~Testing extended RBFs.~~~~~~~~~~~~~~~~~~")
+println("~~~~~~~~~~~~~~~~Testing Mesh Free extended RBFs.~~~~~~~~~~~~~~~~~~")
 
 n = [32,32,32];
 
@@ -24,7 +25,7 @@ m10 = zeros(nRBF*numParamOfRBF);
 for k=1:nRBF
 	offset10 = (k-1)*numParamOfRBF + 1;
 	m10[offset10] = randn();
-	beta = max(abs(randn()),0.25);
+	beta = max(abs(randn()),0.5);
 	# println(beta)
 	# m10[offset10+1] = beta; m10[offset10+4] = beta; m10[offset10+6] = beta; ## for the L version.
 	m10[offset10+1] = beta^2; m10[offset10+4] = beta^2; m10[offset10+6] = beta^2; ## for the A version.
@@ -35,10 +36,11 @@ for k=1:nRBF
 	m5[(offset5+2):(offset5+4)] = m10[(offset10+7):(offset10+9)];
 end
 
-u5, = ParamLevelSetModelFunc(Mesh,m5;computeJacobian=0,numParamOfRBF = 5);
-u10, = ParamLevelSetModelFunc(Mesh,m10;computeJacobian=0,numParamOfRBF = 10);
-
-@test norm(u5-u10) < 1e-5 
+u5, = MeshFreeParamLevelSetModelFunc(Mesh,m5;computeJacobian=0,numParamOfRBF = 5);
+u10, = MeshFreeParamLevelSetModelFunc(Mesh,m10;computeJacobian=0,numParamOfRBF = 10);
+if norm(u5-u10) > 1e-5
+	error(string("This should be zero: ",norm(u5-u10)));
+end
 
 n = [32,32,32];
 Mesh = getRegularMesh([0.0;5.0;0.0;5.0;0.0;5.0],n);
@@ -51,16 +53,15 @@ m = zeros(nRBF*numParamOfRBF);
 for k=1:nRBF
 	offset = (k-1)*numParamOfRBF + 1;
 	m[offset] = randn();
-	A = randn(3,3); A = 0.3*A'*A + 0.5*Matrix(1.0I,3,3); #A = eye(3) + 1e-5;
-	# L = chol(A)';
-	# m[(offset+1):(offset+6)] = L[L.!=0.0];
+	A = randn(3,3); A = 0.5*A'*A + 0.5*Matrix(1.0I,3,3); #A = eye(3) + 1e-5;
 	m[(offset+1):(offset+6)] = A[tril(A).!=0.0];
-
-	# m[offset+1] = 1.0; m[offset+4] = 1.0; m[offset+6] = 1.0;
 	m[(offset+7):(offset+9)] = midmesh + 0.05*lenmesh.*randn(size(lenmesh));
-	#println(midmesh + 0.1*lenmesh.*randn(size(lenmesh)))
 end
-u, = ParamLevelSetModelFunc(Mesh,m;computeJacobian=0,numParamOfRBF = 10);
+u, = MeshFreeParamLevelSetModelFunc(Mesh,m;computeJacobian=0,numParamOfRBF = 10);
+ufull, = ParamLevelSetModelFunc(Mesh,m;computeJacobian=0,numParamOfRBF = 10);
+@test norm(u-ufull) < 1e-8
+
+
 if plotting 
 	figure()
 	u = reshape(u,tuple(Mesh.n...));
@@ -68,7 +69,7 @@ if plotting
 end
 
 sigmaH = getDefaultHeaviside();
-us, = ParamLevelSetModelFunc(Mesh,m;computeJacobian=0,sigma = sigmaH,numParamOfRBF = 10);
+us, = MeshFreeParamLevelSetModelFunc(Mesh,m;computeJacobian=0,sigma = sigmaH,numParamOfRBF = 10);
 if plotting
 	figure()
 	plotModel(us)
@@ -85,30 +86,28 @@ for k=1:nRBF
 end
 
 hh = 1.0;
-# u0,II,JJ,VV = ParamLevelSetModelFunc_old(Mesh,m;computeJacobian=1,bf = bf,numParamOfRBF = 10);
-# J0 = sparse(II,JJ,VV,prod(Mesh.n),length(m))
 
-u0,JBuilder = ParamLevelSetModelFunc(Mesh,m;computeJacobian=1,bf = bf,numParamOfRBF = 10);
+u0,JBuilder = MeshFreeParamLevelSetModelFunc(Mesh,m;computeJacobian=1,bf = bf,numParamOfRBF = 10);
 J0 = getSparseMatrix(JBuilder);
+ufull,JBuilder = ParamLevelSetModelFunc(Mesh,m;computeJacobian=1,bf = bf,numParamOfRBF = 10);
+Jfull = getSparseMatrix(JBuilder);
+
+@test norm(Jfull - J0,1) < 1e-8
 
 for k=0:8
 	hhh = (0.5^k)*hh;
-	ut = ParamLevelSetModelFunc(Mesh,m+ hhh*dm;computeJacobian=0,bf = bf,numParamOfRBF = 10)[1];
+	ut = MeshFreeParamLevelSetModelFunc(Mesh,m+ hhh*dm;computeJacobian=0,bf = bf,numParamOfRBF = 10)[1];
 	println("norm(ut-u0): ",norm(ut[:]-u0[:]),", norm(ut - u0 - J0*dm): ",norm(ut[:] - u0[:] - J0*hhh*dm));
 end
 
 println("With Heaviside func");
 
 hh = 1.0;
-
-# u0,II,JJ,VV = ParamLevelSetModelFunc_old(Mesh,m;computeJacobian=1,sigma=sigmaH,bf = bf,numParamOfRBF = 10);
-# J0 = sparse(II,JJ,VV,prod(Mesh.n),length(m));
-
-u0,JBuilder = ParamLevelSetModelFunc(Mesh,m;computeJacobian=1,sigma=sigmaH,bf = bf,numParamOfRBF = 10);
+u0,JBuilder = MeshFreeParamLevelSetModelFunc(Mesh,m;computeJacobian=1,sigma=sigmaH,bf = bf,numParamOfRBF = 10);
 J0 = getSparseMatrix(JBuilder);
 for k=0:8
 	hhh = (0.5^k)*hh;
-    ut = ParamLevelSetModelFunc(Mesh,m + hhh*dm;computeJacobian=0,sigma=sigmaH,bf = bf,numParamOfRBF = 10)[1];
+    ut = MeshFreeParamLevelSetModelFunc(Mesh,m + hhh*dm;computeJacobian=0,sigma=sigmaH,bf = bf,numParamOfRBF = 10)[1];
 	println("norm(ut-u0): ",norm(ut[:]-u0[:]),", norm(ut - u0 - J0*dm): ",norm(ut[:] - u0[:] - hhh*(J0*dm)));
 end
 

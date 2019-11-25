@@ -30,7 +30,6 @@ function ParamLevelSetModelFunc(Mesh::RegularMesh,m::Vector; computeJacobian = 1
 		end
 	end
 	sigma(u,dsu);
-	nnzJ = 0
 	if computeJacobian == 1
 		if numParamOfRBF==5
 			for k=1:nRBFs
@@ -223,18 +222,8 @@ function dpsi1_t(r::Float64)
 end
 
 
-# function radius(x::Union{Array{Float64,2},Array{Float32,2}},eps::Float64 = 1e-3)
-# t = vec(sum(x.^2,2));
-# return (sqrt.(t + eps),t);
-# end
-
-# function radius(x::Union{Vector{Float64},Vector{Float32}},eps::Float64 = 1e-3)
-# t = dot(x,x);
-# return sqrt(t + eps);
-# end
-
 function radiust(t::Float64,eps::Float64 = 1e-3)
-return sqrt(t + eps);
+return sqrt(t + eps);#
 end
 
 export splitTheta,wrapTheta

@@ -3,6 +3,7 @@ using LinearAlgebra
 using SparseArrays
 using jInv.Mesh
 using jInv.Utils
+using NearestNeighbors
 
 export centerHeaviside,deltaHeaviside,getDefaultHeaviside
 centerHeavySide = 0.3;
@@ -21,6 +22,7 @@ return Matrix(1.0I,n,n);
 end
 include("SpMatBuilder.jl");
 include("RBFs.jl");
+include("MeshFreeRBFs.jl");
 include("RBFs_extended.jl");
 include("heaviside.jl");
 include("RBFRotation3D.jl");
