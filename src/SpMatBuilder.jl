@@ -33,7 +33,7 @@ function getSparseMatrixTransposed(B::SpMatBuilder)
 	B.I[idx:end] .= 1;
 	B.J[idx:end] .= 1;
 	B.V[idx:end] .= 0.0;
-	return sparse(B.J,B.I,B.V,B.m,B.n);
+	return sparse(B.J,B.I,B.V,B.n,B.m);
 end
 
 
