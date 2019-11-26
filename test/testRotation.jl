@@ -21,7 +21,7 @@ return u;
 end
 
 println("Rotation operator transpose test");
-n = [33,33,33];
+n = [64,64,64].+1;
 
 u = getDiamondModel(n);
 u = convert(Array{Float64}, u)

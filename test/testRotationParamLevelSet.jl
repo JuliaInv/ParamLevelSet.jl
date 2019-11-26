@@ -6,7 +6,7 @@ using jInv.Mesh
 
 println("Testing the rotation itself:")
 
-n = [128,128,128];
+n = [64,64,64];
 Mesh = getRegularMesh([0.0;3.0;0.0;3.0;0.0;3.0],n);
 alpha = [1.5;2.5;-2.0;-1.0];
 beta = [2.5;2.0;-1.5;2.5];
@@ -16,7 +16,7 @@ m = wrapTheta(alpha,beta,Xs);
 u, = ParamLevelSetModelFunc(Mesh,m;computeJacobian=0);
 
 theta_phi = deg2rad.([37.0 24.0 ; 27.0 14.0]);
-b = [1.0 5.0 7.0 ; -2.3 5.2 3.5]*(sum(Mesh.h)/3.0);
+b = [5.0 5.0 7.0 ; -2.3 -5.2 3.5]*(sum(Mesh.h)/3.0);
 
 Xc = convert(Array{Float32,2},getCellCenteredGrid(Mesh));
 
@@ -34,8 +34,8 @@ mr2,Jrot = rotateAndMoveRBFsimple(m,Mesh,theta_phi,b;computeJacobian = 1);
 @elapsed ur2[:,1] .= ParamLevelSetModelFunc(Mesh,mr2[:,1];computeJacobian=0,Xc = Xc)[1];
 @elapsed ur2[:,2] .= ParamLevelSetModelFunc(Mesh,mr2[:,2];computeJacobian=0,Xc = Xc)[1];
 
-err = norm(ur1-ur2)./(2*norm(u));
-if err < 1e-1
+err = norm(ur1-ur2)./(norm(ur1));
+if err < 1.5e-1
 	println("RBF Rotation test succeeded: ",err);
 else
 	error("RBF Rotation test not succeeded: ",err);

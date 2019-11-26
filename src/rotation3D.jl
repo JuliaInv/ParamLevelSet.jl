@@ -37,23 +37,24 @@ x = zeros(3);
 
 
 if length(XT)==0
-	# println("Building XT");
 	XT = zeros(3,prod(n));
-	for i3 = 1:size(u,3)
-		for i2 = 1:size(u,2)
-			for i1 = 1:size(u,1)
-				@inbounds xt[1] = i1; xt[2] = i2; xt[3] = i3;
-				# x = xt - midphalf_plus_b;
-				BLAS.axpy!(-1.0,midphalf_plus_b,xt); # xt = xt - midphalf_plus_b;
-				ii = loc2cs3D(i1,i2,i3,n);
-				@inbounds XT[:,ii] = xt;
-			end
+	XTT = zeros(3,prod(n));
+	# println("Building XT");
+else
+	XT[:].=0.0;
+	XTT[:].=0.0;
+end
+for i3 = 1:size(u,3)
+	for i2 = 1:size(u,2)
+		for i1 = 1:size(u,1)
+			@inbounds xt[1] = i1; xt[2] = i2; xt[3] = i3;
+			# x = xt - midphalf_plus_b;
+			BLAS.axpy!(-1.0,midphalf_plus_b,xt); # xt = xt - midphalf_plus_b;
+			ii = loc2cs3D(i1,i2,i3,n);
+			@inbounds XT[:,ii] = xt;
 		end
 	end
-	XTT = zeros(3,prod(n));
 end
-
-iii=1;
 # gemm!(tA, tB, alpha, A, B, beta, C)
 XTT[1,:] .= midphalf[1];
 XTT[2,:] .= midphalf[2];
@@ -76,6 +77,7 @@ else
 end
 
 # the code below is an altenative to the code above.
+# iii=1;
 # for i3 = 1:size(u,3)
 	# for i2 = 1:size(u,2)
 		# for i1 = 1:size(u,1)
@@ -99,76 +101,55 @@ end
 return v,XT,XTT;
 end
 
-function rotateAndMove3DTranspose(v::Array,theta_phi_rad::Array{Float64},b::Array{Float64})
-###
-# b here is in pixels - not in Mesh units (no mesh here...)
-###
-n = collect(size(v));
-u = zeros(eltype(v),size(v));
-R = getRotate3D(theta_phi_rad[1],theta_phi_rad[2]);
-invR = inv(R);
-mid = n/2.0;
-maxU = maximum(v);
-thresh = 1e-4*maxU;
-for i3 = 1:size(v,3)
-	for i2 = 1:size(v,2)
-		for i1 = 1:size(v,1)
-			@inbounds vi = v[i1,i2,i3];
-			if abs(vi) > thresh
-				x = [i1;i2;i3] .- (mid .+ 0.5 ) .- b; ### here we actually do the inverse operation in a forward way
-				x = invR*x;
-				x .+= mid;
-				@inbounds if x[1] <=  0.5 || (x[1] >= n[1]-0.5) || (x[2] <= 0.5) || (x[2] >= n[2]-0.5)|| x[3] <= 0.5 || x[3] >= n[3]-0.5
-					warn("Rotation3D: rotation went out of bounds. Please increase zero padding.");
-					continue;
-				end
-				x .+= 0.5;
-				xloc = convert(Array{Int64},round.(x));
-				@inbounds u[xloc[1],xloc[2],xloc[3]] += vi;
-			end
-		end
-	end
-end
-return u;
-end
+# function rotateAndMove3DTranspose(v::Array,theta_phi_rad::Array{Float64},b::Array{Float64})
+# ###
+# # b here is in pixels - not in Mesh units (no mesh here...)
+# ###
+# n = collect(size(v));
+# u = zeros(eltype(v),size(v));
+# R = getRotate3D(theta_phi_rad[1],theta_phi_rad[2]);
+# invR = inv(R);
+# mid = n/2.0;
+# maxU = maximum(v);
+# thresh = 1e-4*maxU;
+# for i3 = 1:size(v,3)
+	# for i2 = 1:size(v,2)
+		# for i1 = 1:size(v,1)
+			# @inbounds vi = v[i1,i2,i3];
+			# if abs(vi) > thresh
+				# x = [i1;i2;i3] .- (mid .+ 0.5 ) .- b; ### here we actually do the inverse operation in a forward way
+				# x = invR*x;
+				# x .+= mid;
+				# @inbounds if x[1] <=  0.5 || (x[1] >= n[1]-0.5) || (x[2] <= 0.5) || (x[2] >= n[2]-0.5)|| x[3] <= 0.5 || x[3] >= n[3]-0.5
+					# warn("Rotation3D: rotation went out of bounds. Please increase zero padding.");
+					# continue;
+				# end
+				# x .+= 0.5;
+				# xloc = convert(Array{Int64},round.(x));
+				# @inbounds u[xloc[1],xloc[2],xloc[3]] += vi;
+			# end
+		# end
+	# end
+# end
+# return u;
+# end
 
 
-function smooth3D(v::Array,numFilters = 1)
-N = collect(-1:1);
-E3 = ones(3,3,3);
-E2 = [1.0 ; 2.0 ; 1.0]*[1.0 ; 2.0 ; 1.0]';
-E3[:,:,1] = E2;
-E3[:,:,2] = 2*E2;
-E3[:,:,3] = E2;
-E = E ./ sum(E[:]);
+# function smooth3D(v::Array,numFilters = 1)
+# N = collect(-1:1);
+# E3 = ones(3,3,3);
+# E2 = [1.0 ; 2.0 ; 1.0]*[1.0 ; 2.0 ; 1.0]';
+# E3[:,:,1] = E2;
+# E3[:,:,2] = 2*E2;
+# E3[:,:,3] = E2;
+# E = E ./ sum(E[:]);
 
-for k = 1:2
-	for i3 = 2:size(u,3)-1
-		for i2 = 2:size(u,2)-1
-			for i1 = 2:size(u,1)-1
-				v[i1, i2, i3] = sum(E.*v[i1 + N, i2 + N, i3 + N]);
-			end
-		end
-	end
-end
-return v;
-end
-
-
-# function rotateSensitivity3D(u::Array,dtheta::Array{Float64},db::Array{Float64},b::Array{Float64})
-# n = collect(size(u));
-# h = ones(size(n));
-# v = zeros(eltype(u),size(u));
-# mid = n/2.0 + b;
-# dtheta = deg2rad(dtheta);
-# for i3 = 2:size(u,3)-1
-	# for i2 = 2:size(u,2)-1
-		# for i1 = 2:size(u,1)-1
-			# du1 = (u[i1+1,i2,i3] - u[i1-1,i2,i3])/2;
-			# du2 = (u[i1,i2+1,i3] - u[i1,i2-1,i3])/2;
-			# du3 = (u[i1,i2,i3+1] - u[i1,i2,i3-1])/2;
-			# x = [i1,i2,i3] - (mid + 0.5);
-			# v[i1,i2,i3] = db[1]*du1 + db[2]*du2 + db[3]*du3 + (dtheta[1]*x[2] + dtheta[2]*x[3])*du1 - dtheta[1]*x[1]*du2 - dtheta[2]*x[1]*du3;
+# for k = 1:2
+	# for i3 = 2:size(u,3)-1
+		# for i2 = 2:size(u,2)-1
+			# for i1 = 2:size(u,1)-1
+				# v[i1, i2, i3] = sum(E.*v[i1 + N, i2 + N, i3 + N]);
+			# end
 		# end
 	# end
 # end
