@@ -13,4 +13,4 @@ script:
   - julia --check-bounds=yes --color=yes -e 'using Pkg; Pkg.test("ParamLevelSet";coverage=true);'
 
 after_success:
-  - julia -e 'cd(Pkg.dir("ParamLevelSet")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
+  - julia -e 'using Pkg; cd(Pkg.dir("ParamLevelSet")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
