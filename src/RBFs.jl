@@ -41,7 +41,8 @@ function ParamLevelSetModelFunc(Mesh::RegularMesh,m::Vector; computeJacobian = 1
 			end
 		end	
 	end
-	return u,Jbuilder;
+	return u, Jbuilder.I, Jbuilder.J, Jbuilder.V
+	# return u,Jbuilder;
 end
 
 
