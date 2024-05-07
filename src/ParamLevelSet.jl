@@ -5,11 +5,11 @@ using jInv.Mesh
 using jInv.Utils
 using NearestNeighbors
 
-export centerHeaviside,deltaHeaviside,getDefaultHeaviside,getDefaultHeavyside
+export centerHeaviside,deltaHeaviside,getDefaultHeaviside,getDefaultHeavySide
 centerHeavySide = 0.3;
 deltaHeavySide = 0.05;
 
-function getDefaultHeavyside()
+function getDefaultHeavySide()
 	return (u,dsu)->heaviside!(u,dsu,ParamLevelSet.centerHeavySide,ParamLevelSet.deltaHeavySide);
 end
 
